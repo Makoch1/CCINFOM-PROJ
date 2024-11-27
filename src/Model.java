@@ -5,11 +5,12 @@ import java.util.ArrayList;
 public class Model {
     private static final String CONNECTION_URL = "jdbc:mysql://localhost:3306/infom";
     private static final String DB_USERNAME = "root";
-    private static final String DB_PASSWORD = "runninginthe90s";
+    private static final String DB_PASSWORD = "root";
 
     private Connection connection;
 
     private int currentStudentID = 1;
+    private int currentAdminID = 1;
 
     public Model() {
         try {
@@ -22,6 +23,48 @@ public class Model {
 
         } catch (Exception e) {
             System.out.println(e);
+        }
+    }
+
+    public boolean loginAdmin(String idNumber) {
+        try {
+            String query =  "SELECT ID " +
+                            "FROM admins " +
+                            "WHERE admin_ID = ?";
+            PreparedStatement stmt = connection.prepareStatement(query);
+            stmt.setString(1, idNumber);
+
+            ResultSet rs = stmt.executeQuery();
+            if (!rs.isBeforeFirst()) {
+                return false;
+            }
+
+            rs.next();
+            this.currentAdminID = rs.getInt("ID");
+            return true;
+        } catch (SQLException e) {}
+
+        return false;
+    }
+
+    public boolean loginStudent(String idNumber) {
+        try {
+            String query =  "SELECT ID " +
+                            "FROM students " +
+                            "WHERE student_ID = ?";
+            PreparedStatement stmt = connection.prepareStatement(query);
+            stmt.setString(1, idNumber);
+
+            ResultSet rs = stmt.executeQuery();
+            if (!rs.isBeforeFirst()) {
+                return false;
+            }
+
+            rs.next();
+            this.currentStudentID = rs.getInt("ID");
+            return true;
+        } catch (SQLException e) {
+            return false;
         }
     }
 
@@ -102,11 +145,12 @@ public class Model {
             }
 
             // PREPARE INSERT STATEMENT
-            String query =  "INSERT INTO course_section (course_ID, schedule) " +
-                            "VALUES (?, ?)";
+            String query =  "INSERT INTO course_section (course_ID, schedule, name) " +
+                            "VALUES (?, ?, ?)";
             PreparedStatement stmt = connection.prepareStatement(query);
             stmt.setInt(1, courseID);
             stmt.setString(2, newCourseSection.schedule());
+            stmt.setString(3, newCourseSection.name());
 
             stmt.executeUpdate();
             return true;
@@ -241,6 +285,56 @@ public class Model {
 
     }
 
+    public Admin getCurrentAdmin() {
+        Admin admin = null;
+
+        try {
+            String query =  "SELECT admin_ID, first_name, middle_name, last_name " +
+                    "FROM admins " +
+                    "WHERE ID = ?";
+            PreparedStatement stmt = connection.prepareStatement(query);
+            stmt.setInt(1, this.currentAdminID);
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.isBeforeFirst()) {
+                rs.next();
+                admin = new Admin(
+                        rs.getString("admin_ID"),
+                        rs.getString("first_name"),
+                        rs.getString("middle_name"),
+                        rs.getString("last_name")
+                );
+            }
+        } catch (SQLException e) {}
+
+        return admin;
+    }
+
+    public Student getCurrentStudent() {
+        Student student = null;
+
+        try {
+            String query =  "SELECT student_ID, first_name, middle_name, last_name " +
+                            "FROM STUDENTS " +
+                            "WHERE ID = ?";
+            PreparedStatement stmt = connection.prepareStatement(query);
+            stmt.setInt(1, this.currentStudentID);
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.isBeforeFirst()) {
+                rs.next();
+                student = new Student(
+                        rs.getString("student_ID"),
+                        rs.getString("first_name"),
+                        rs.getString("middle_name"),
+                        rs.getString("last_name")
+                );
+            }
+        } catch (SQLException e) {}
+
+        return student;
+    }
+
     public ArrayList<Student> getStudents() {
         ArrayList<Student> students = new ArrayList<>();
 
@@ -304,8 +398,9 @@ public class Model {
         ArrayList<CourseSection> courseSections = new ArrayList<>();
 
         try {
-            String query =  "SELECT c.code AS code, c.name AS name, cs.schedule AS schedule " +
-                            "FROM courses AS c, course_section AS cs";
+            String query =  "SELECT c.code AS code, cs.name AS name, cs.schedule AS schedule " +
+                            "FROM courses AS c, course_section AS cs " +
+                            "WHERE c.ID = cs.course_ID";
             PreparedStatement stmt = connection.prepareStatement(query);
 
             ResultSet rs = stmt.executeQuery();
@@ -323,6 +418,30 @@ public class Model {
         } catch (SQLException e) {}
 
         return courseSections;
+    }
+
+    public ArrayList<Homework> getHomeworks() {
+        ArrayList<Homework> homeworks = new ArrayList<>();
+
+        try {
+            String query =  "SELECT c.code AS code, h.description AS description, h.deadline AS deadline " +
+                            "FROM homeworks AS h, courses as c " +
+                            "WHERE h.course_ID = c.ID";
+            PreparedStatement stmt = connection.prepareStatement(query);
+
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                Homework homework = new Homework(
+                        rs.getString("code"),
+                        rs.getString("description"),
+                        rs.getDate("deadline").toString()
+                );
+
+                homeworks.add(homework);
+            }
+        } catch (SQLException e) {}
+
+        return homeworks;
     }
 
     /**
@@ -397,7 +516,7 @@ public class Model {
         ArrayList<CourseSection> courseSections = new ArrayList<>();
 
         try {
-            String query =  "SELECT c.code AS code, c.name AS name, cs.schedule AS schedule " +
+            String query =  "SELECT c.code AS code, cs.name AS name, cs.schedule AS schedule " +
                             "FROM course_section AS cs, student_course AS sc, courses AS c " +
                             "WHERE sc.student_ID = ? " +
                             "AND cs.ID = sc.section_ID " +
