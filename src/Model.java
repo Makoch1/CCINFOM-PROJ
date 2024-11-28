@@ -540,6 +540,80 @@ public class Model {
         return courseSections;
     }
 
+    /**
+     * Grabs all submissions from all courses.
+     * @return
+     */
+    public ArrayList<Submission> getSubmissions() {
+        ArrayList<Submission> submissions = new ArrayList<>();
+
+        try {
+            String query =  "SELECT " +
+                                "hc.code, "+
+                                "CONCAT(st.first_name, ' ', st.middle_name, ' ', st.last_name) AS full_name, " +
+                                "DATE_FORMAT(su.submitted_on, '%Y-%m-%d') AS submitted_on, " +
+                                "su.file " +
+                            "FROM submissions AS su " +
+                            "LEFT JOIN ( " +
+                                "SELECT h.ID AS ID, c.code AS code " +
+                                "FROM homeworks AS h, courses AS c " +
+                                "WHERE c.ID = h.course_ID " +
+                            ") AS hc ON hc.ID = su.homework_ID " +
+                            "LEFT JOIN students AS st ON su.student_ID = st.ID";
+            PreparedStatement stmt = connection.prepareStatement(query);
+
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                Submission submission = new Submission(
+                        rs.getString("code"),
+                        rs.getString("full_name"),
+                        rs.getString("submitted_on"),
+                        rs.getString("file")
+                );
+
+                submissions.add(submission);
+            }
+        } catch (SQLException e) {}
+
+        return submissions;
+    }
+
+    public ArrayList<Submission> getStudentSubmissions() {
+        ArrayList<Submission> submissions = new ArrayList<>();
+
+        try {
+            String query =  "SELECT " +
+                    "hc.code, "+
+                    "CONCAT(st.first_name, ' ', st.middle_name, ' ', st.last_name) AS full_name, " +
+                    "DATE_FORMAT(su.submitted_on, '%Y-%m-%d') AS submitted_on, " +
+                    "su.file " +
+                    "FROM submissions AS su " +
+                    "LEFT JOIN ( " +
+                    "SELECT h.ID AS ID, c.code AS code " +
+                    "FROM homeworks AS h, courses AS c " +
+                    "WHERE c.ID = h.course_ID " +
+                    ") AS hc ON hc.ID = su.homework_ID " +
+                    "LEFT JOIN students AS st ON su.student_ID = st.ID " +
+                    "WHERE st.ID = ?";
+            PreparedStatement stmt = connection.prepareStatement(query);
+            stmt.setInt(1, this.currentStudentID);
+
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                Submission submission = new Submission(
+                        rs.getString("code"),
+                        rs.getString("full_name"),
+                        rs.getString("submitted_on"),
+                        rs.getString("file")
+                );
+
+                submissions.add(submission);
+            }
+        } catch (SQLException e) {}
+
+        return submissions;
+    }
+
     private int getCourseID(String courseCode) {
         try {
             // FIRST GET THE ID OF THE COURSE USING THE SUPPLIED CODE
